@@ -13,15 +13,15 @@ class ProxyEstimationNet(nn.Module):
         point_num = 34920
         mu,b,sig_id, sig_exp = load_3dmm_file(path_3dmm, point_num, id_dim, exp_dim)
 
-        self.mu = torch.as_tensor(mu).cuda()
-        self.b = torch.as_tensor(b).cuda()
+        self.mu = torch.as_tensor(mu).cpu()
+        self.b = torch.as_tensor(b).cpu()
         tris = numpy.loadtxt(path_tris, int) - 1
-        self.tris = torch.as_tensor(tris).cuda()
+        self.tris = torch.as_tensor(tris).cpu()
         self.height = 800
         self.width = 600
-        self.sig_id = torch.as_tensor(sig_id).cuda()
-        self.sig_exp = torch.as_tensor(sig_exp).cuda()
-        self.resnet = torchvision.models.resnet18(pretrained=False)
+        self.sig_id = torch.as_tensor(sig_id).cpu()
+        self.sig_exp = torch.as_tensor(sig_exp).cpu()
+        self.resnet = torchvision.models.resnet18(pretrained=False).cpu()
         num_ftrs = self.resnet.fc.in_features
         self.resnet.fc = nn.Linear(num_ftrs, 500)
 
@@ -36,6 +36,7 @@ class ProxyEstimationNet(nn.Module):
         return torch.mm(pca_para, self.b) + self.mu
 
     def forward(self, input_rgb, cam):
+        input_rgb = input_rgb.cpu()
         active_opt = nn.ReLU(True)
         fc2 = active_opt(self.resnet(input_rgb))
         norm_id_para = self.reg_id(fc2)
@@ -49,6 +50,8 @@ class ProxyEstimationNet(nn.Module):
             id_para.shape[0], -1, 3).permute(0, 2, 1)
         rott_geo, proj_geo = proj_rott_geo(geometry, euler_angle, trans, cam)
         tri_normal = compute_tri_normal(rott_geo, self.tris)
+        proj_geo = proj_geo.cuda()
+        tri_normal = tri_normal.cuda()
         normal_map, mask = generate_normal_mask(
             proj_geo.contiguous(), tri_normal.contiguous(), self.tris.contiguous(), self.height, self.width)
         pca_pose_cam = torch.cat(
@@ -130,6 +133,7 @@ def compute_tri_normal(geometry, tris):
     return normal
 
 def generate_normal_mask(proj_geo, tri_normal, tri_inds, height, width):
+    tri_inds = tri_inds.cuda()
     normak_map, mask = gen_normal_mask.gen_normal_mask(
         proj_geo, tri_normal, tri_inds, height, width)
     return normak_map, mask

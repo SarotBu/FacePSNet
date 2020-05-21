@@ -9,6 +9,7 @@ class NormalEstimationNet(nn.Module):
         self.regressor = Normal_Regressor()
 
     def forward(self, imgs, proxy_normal):
+        proxy_normal = proxy_normal.cpu()
         imgs_feat = self.extractor(imgs)
         img_feat_fused = imgs_feat.max(dim=0, keepdim=True)[0]
         proxy_feat = self.proxy_extractor(proxy_normal)
